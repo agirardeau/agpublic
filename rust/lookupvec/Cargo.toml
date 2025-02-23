@@ -1,0 +1,21 @@
+[package]
+name = "lookupvec"
+version = "0.1.0"
+edition = "2021"
+rust_version = "1.63"
+
+[features]
+default = ["std"]
+serde = ["dep:serde"]
+#serde = ["dep:serde", "dep:serde_derive"]
+std = ["indexmap/std"]
+
+[dependencies]
+delegate = "^0.13"
+#derive_more = { version = "^0.99", features = ["index", "index_mut"]}
+indexmap = "^2.7"
+serde = { version = "^1.0", optional = true }
+
+[dev-dependencies]
+serde_json = "^1.0"
+serde = { version = "^1.0", features = ["derive"] }
