@@ -48,6 +48,7 @@ dependencies = [
  "delegate",
  "indexmap",
  "lookupvec_derive",
+ "ref-cast",
  "serde",
  "serde_json",
 ]
