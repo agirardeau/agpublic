@@ -1,11 +1,4 @@
 // Trait impls:
-//  To do:
-//      IntoDeserializer<'de, E>
-//      FromIterator<T>
-//  Would be nice:
-//      Extend<&'a T)>
-//      Extend<T>
-//      From<[T; N]>
 //  Maybe:
 //      Index<&Q>
 //      Index<(Bound<usize>, Bound<usize>)>
@@ -15,7 +8,6 @@
 //      Index<RangeInclusive<usize>>
 //      Index<RangeTo<usize>>
 //      Index<RangeToInclusive<usize>>
-//      Index<usize>
 //      IndexMut<&Q>
 //      IndexMut<(Bound<usize>, Bound<usize>)>
 //      IndexMut<Range<usize>>
@@ -24,7 +16,6 @@
 //      IndexMut<RangeInclusive<usize>>
 //      IndexMut<RangeTo<usize>>
 //      IndexMut<RangeToInclusive<usize>>
-//      IndexMut<usize>
 //  Nah:
 //      Arbitrary
 //      Arbitrary<'a>
@@ -81,6 +72,7 @@ pub mod core;
 pub mod iter;
 #[cfg(feature = "serde")]
 pub mod serde;
+//pub mod slice;
 pub mod vec;
 
 pub use core::Lookup;

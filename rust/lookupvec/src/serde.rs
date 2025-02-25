@@ -1,6 +1,12 @@
 #[cfg(feature = "serde")]
 
-use serde::{Deserialize, Serialize, Deserializer, Serializer};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de;
+use serde::de::IntoDeserializer;
+use serde::de::value::SeqDeserializer;
+use serde::Serialize;
+use serde::Serializer;
 use crate::LookupVec;
 use crate::Lookup;
 use std::hash::BuildHasher;
@@ -34,11 +40,11 @@ where
         D: Deserializer<'de>,
     {
         // Deserialize from a sequence/array
-        struct KeyVecVisitor<T, S> {
+        struct LookupVecVisitor<T, S> {
             marker: std::marker::PhantomData<(T, S)>,
         }
 
-        impl<'de, T, S> serde::de::Visitor<'de> for KeyVecVisitor<T, S>
+        impl<'de, T, S> serde::de::Visitor<'de> for LookupVecVisitor<T, S>
         where
             T: Lookup + Deserialize<'de>,
             S: BuildHasher + Default,
@@ -66,9 +72,22 @@ where
             }
         }
 
-        deserializer.deserialize_seq(KeyVecVisitor {
+        deserializer.deserialize_seq(LookupVecVisitor {
             marker: std::marker::PhantomData,
         })
+    }
+}
+
+impl<'de, T, S, E> IntoDeserializer<'de, E> for LookupVec<T, S>
+where
+    T: Lookup + IntoDeserializer<'de, E>,
+    S: BuildHasher,
+    E: de::Error,
+{
+    type Deserializer = SeqDeserializer<<Self as IntoIterator>::IntoIter, E>;
+
+    fn into_deserializer(self) -> Self::Deserializer {
+        SeqDeserializer::new(self.into_iter())
     }
 }
 
@@ -87,6 +106,14 @@ mod tests {
         type Key = String;
         fn key(&self) -> String {
             self.id.clone()
+        }
+    }
+
+    impl<'de> IntoDeserializer<'de, serde_json::Error> for TestItem {
+        type Deserializer = serde_json::Value;
+
+        fn into_deserializer(self) -> Self::Deserializer {
+            serde_json::to_value(&self).unwrap()
         }
     }
 
@@ -223,5 +250,21 @@ mod tests {
 
         let keys: Vec<_> = vec.keys().collect();
         assert_eq!(keys, vec!["c", "a", "b"]);
+    }
+
+    #[test]
+    fn test_into_deserializer() {
+        let mut vec = LookupVec::new();
+        vec.push(create_test_item("test1", 42));
+        vec.push(create_test_item("test2", 84));
+
+        let deserializer = vec.into_deserializer();
+        let deserialized: Vec<TestItem> = Vec::deserialize(deserializer).unwrap();
+
+        assert_eq!(deserialized.len(), 2);
+        assert_eq!(deserialized[0].id, "test1");
+        assert_eq!(deserialized[0].value, 42);
+        assert_eq!(deserialized[1].id, "test2");
+        assert_eq!(deserialized[1].value, 84);
     }
 }

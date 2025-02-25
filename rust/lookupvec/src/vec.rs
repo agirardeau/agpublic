@@ -1,15 +1,20 @@
 use crate::core::Lookup;
 use crate::iter::*;
+//use crate::slice::Slice;
 
 use delegate::delegate;
 use indexmap::IndexMap;
 use indexmap::Equivalent;
+//use ref_cast::RefCast;
 
-use std::cmp::Ordering;
-use std::hash::BuildHasher;
-use std::hash::Hash;
+use core::cmp::Ordering;
+use core::hash::BuildHasher;
+use core::hash::Hash;
+use core::ops::Index;
+use core::ops::IndexMut;
+use core::ops::RangeBounds;
+#[cfg(feature = "std")]
 use std::hash::RandomState;
-use std::ops::RangeBounds;
 
 #[cfg(feature = "std")]
 #[derive(Default)]
@@ -242,6 +247,99 @@ impl<T: Lookup, S> IntoIterator for LookupVec<T, S> {
     }
 }
 
+impl<T: Lookup, S> FromIterator<T> for LookupVec<T, S>
+where S: BuildHasher + Default {
+    fn from_iter<I: IntoIterator<Item = T>>(iterable: I) -> Self {
+        let iter = iterable.into_iter();
+        let (low, _) = iter.size_hint();
+        let mut vec = Self::with_capacity_and_hasher(low, <_>::default());
+        vec.extend(iter);
+        vec
+    }
+}
+
+#[cfg(feature = "std")]
+impl<T: Lookup, const N: usize> From<[T; N]> for LookupVec<T, RandomState> {
+    fn from(arr: [T; N]) -> Self {
+        Self::from_iter(arr)
+    }
+}
+
+impl<T: Lookup, S> Extend<T> for LookupVec<T, S>
+where S: BuildHasher {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iterable: I) {
+        // (Note: this is a copy of `std`/`hashbrown`'s reservation logic.)
+        // Keys may be already present or show multiple times in the iterator.
+        // Reserve the entire hint lower bound if the map is empty.
+        // Otherwise reserve half the hint (rounded up), so the map
+        // will only resize twice in the worst case.
+        let iter = iterable.into_iter();
+        let reserve = if self.is_empty() {
+            iter.size_hint().0
+        } else {
+            (iter.size_hint().0 + 1) / 2
+        };
+        self.reserve(reserve);
+        iter.for_each(move |t| {
+            self.push(t);
+        });
+    }
+}
+
+impl<'a, T, S> Extend<&'a T> for LookupVec<T, S>
+where
+    T: Lookup + Copy,
+    S: BuildHasher,
+{
+    /// Extend the map with all items pairs in the iterable.
+    ///
+    /// See the first extend method for more details.
+    fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iterable: I) {
+        self.extend(iterable.into_iter().map(|&item| item));
+    }
+}
+
+impl<T: Lookup, S> Index<usize> for LookupVec<T, S> {
+    type Output = T;
+
+    /// Returns a reference to the value at the supplied `index`.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    fn index(&self, index: usize) -> &T {
+        self.get_index(index)
+            .unwrap_or_else(|| {
+                panic!(
+                    "index out of bounds: the len is {len} but the index is {index}",
+                    len = self.len()
+                );
+            })
+    }
+}
+
+impl<T: Lookup, S> IndexMut<usize> for LookupVec<T, S> {
+    /// Returns a mutable reference to the value at the supplied `index`.
+    ///
+    /// ***Panics*** if `index` is out of bounds.
+    fn index_mut(&mut self, index: usize) -> &mut T {
+        let len: usize = self.len();
+        self.get_index_mut(index)
+            .unwrap_or_else(|| {
+                panic!("index out of bounds: the len is {len} but the index is {index}");
+            })
+    }
+}
+
+// This conflicts with the impl for usize. To get this behavior, we need to impl
+// Index for each of the standard ranges, like indexmap does (see
+// https://docs.rs/indexmap/2.7.1/src/indexmap/map/slice.rs.html#382-424).
+//
+//impl<I: RangeBounds<usize>, T: Lookup, S> Index<I> for LookupVec<T, S> {
+//    type Output = Slice<T>;
+//
+//    fn index(&self, index: I) -> &Slice<T> {
+//        Slice::<T>::ref_cast(self.map.index((index.start_bound().cloned(), index.end_bound().cloned())))
+//    }
+//}
 
 #[cfg(test)]
 mod tests {
