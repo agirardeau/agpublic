@@ -85,3 +85,6 @@ pub mod vec;
 
 pub use core::Lookup;
 pub use vec::LookupVec;
+
+#[cfg(feature = "derive")]
+pub use lookupvec_derive::Lookup;

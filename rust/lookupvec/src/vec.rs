@@ -246,33 +246,22 @@ impl<T: Lookup, S> IntoIterator for LookupVec<T, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lookupvec_derive::Lookup;
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Lookup)]
     struct TestItem {
+        #[lookup_key]
         id: String,
-    }
-
-    impl Lookup for TestItem {
-        type Key = String;
-        fn key(&self) -> Self::Key {
-            self.id.clone()
-        }
     }
 
     fn create_test_item(id: &str) -> TestItem {
         TestItem { id: id.to_string() }
     }
 
-    #[derive(Debug, PartialEq)]
+    #[derive(Debug, PartialEq, Lookup)]
     struct TestItemIntKey {
+        #[lookup_key]
         id: u64,
-    }
-
-    impl Lookup for TestItemIntKey {
-        type Key = u64;
-        fn key(&self) -> Self::Key {
-            self.id
-        }
     }
 
     fn create_test_item_int_key(id: u64) -> TestItemIntKey {

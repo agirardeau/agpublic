@@ -47,8 +47,18 @@ version = "0.1.0"
 dependencies = [
  "delegate",
  "indexmap",
+ "lookupvec_derive",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "lookupvec_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
