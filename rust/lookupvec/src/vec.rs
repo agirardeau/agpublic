@@ -17,7 +17,7 @@ use core::ops::RangeBounds;
 use std::hash::RandomState;
 
 #[cfg(feature = "std")]
-#[derive(Default)]
+#[derive(Debug, Default, Clone)]
 pub struct LookupVec<T: Lookup, S = RandomState> {
     map: IndexMap<T::Key, T, S>,
 }
@@ -352,9 +352,9 @@ mod tests {
         id: String,
     }
 
-    fn create_test_item(id: &str) -> TestItem {
-        TestItem { id: id.to_string() }
-    }
+    fn item1() -> TestItem { TestItem { id: "item1".to_owned() } }
+    fn item2() -> TestItem { TestItem { id: "item2".to_owned() } }
+    fn item3() -> TestItem { TestItem { id: "item3".to_owned() } }
 
     #[derive(Debug, PartialEq, Lookup)]
     struct TestItemIntKey {
@@ -362,8 +362,10 @@ mod tests {
         id: u64,
     }
 
-    fn create_test_item_int_key(id: u64) -> TestItemIntKey {
-        TestItemIntKey { id: id }
+    macro_rules! assert_keys_eq {
+        ($vec:expr, $($key:expr),+) => {
+            assert_eq!($vec.keys().collect::<Vec<&String>>(), vec![$($key),+]);
+        };
     }
 
     #[test]
@@ -377,106 +379,91 @@ mod tests {
     }
 
     #[test]
-    fn test_int_key() {
+    fn test_push_and_get() {
         let mut vec = LookupVec::new();
-        let item1 = create_test_item_int_key(10);
-        let item2 = create_test_item_int_key(20);
-
-        vec.push(item1);
-        vec.push(item2);
+        vec.push(item1());
+        vec.push(item2());
 
         assert_eq!(vec.len(), 2);
-        assert_eq!(vec.get(&10).unwrap().key(), 10);
-        assert_eq!(vec.get_index(1).unwrap().key(), 20);
+        assert_eq!(vec.get("item1").unwrap().id, "item1");
+        assert_eq!(vec.get_index(1).unwrap().id, "item2");
     }
 
     #[test]
-    fn test_push_and_get() {
-        let mut vec = LookupVec::new();
-        let item1 = create_test_item("test1");
-        let item2 = create_test_item("test2");
-
-        vec.push(item1);
-        vec.push(item2);
+    fn test_int_key() {
+        let vec = lookupvec![
+            TestItemIntKey { id: 10 },
+            TestItemIntKey { id: 20 },
+        ];
 
         assert_eq!(vec.len(), 2);
-        assert_eq!(vec.get("test1").unwrap().key(), "test1");
-        assert_eq!(vec.get_index(1).unwrap().key(), "test2");
+        assert_eq!(vec.get(&10).unwrap().id, 10);
+        assert_eq!(vec.get_index(1).unwrap().id, 20);
     }
 
     #[test]
     fn test_insert_and_remove() {
-        let mut vec = LookupVec::new();
-        let item1 = create_test_item("test1");
-        let item2 = create_test_item("test2");
-        let item3 = create_test_item("test3");
+        let mut vec = lookupvec![
+            item1(),
+            item2(),
+        ];
 
-        vec.push(item1);
-        vec.push(item2);
-        vec.insert(1, item3);
+        vec.insert(1, item3());
+        assert_keys_eq!(sorted, "item1", "item3", "item2");
 
-        assert_eq!(vec.len(), 3);
-        assert_eq!(vec.get_index(1).unwrap().key(), "test3");
-
-        let removed = vec.shift_remove("test2").unwrap();
-        assert_eq!(removed.key(), "test2");
+        let removed = vec.shift_remove("item2").unwrap();
+        assert_eq!(removed.id, "item2");
         assert_eq!(vec.len(), 2);
+
+        vec.shift_insert(1, item3());
+        assert_keys_eq!(sorted, "item1", "item3", "item2");
+
     }
 
     #[test]
     fn test_iteration() {
-        let mut vec = LookupVec::new();
-        vec.push(create_test_item("test1"));
-        vec.push(create_test_item("test2"));
+        let vec = lookupvec![
+            item1(),
+            item2(),
+        ];
 
-        let keys: Vec<String> = vec.keys().map(|k| k.to_string()).collect();
-        assert_eq!(keys, vec!["test1".to_string(), "test2".to_string()]);
+        let keys: Vec<&String> = vec.keys().collect();
+        assert_eq!(keys, vec!["item1", "item2"]);
 
         let mut iter = vec.iter();
-        assert_eq!(iter.next().unwrap().key(), "test1");
-        assert_eq!(iter.next().unwrap().key(), "test2");
+        assert_eq!(iter.next().unwrap().id, "item1");
+        assert_eq!(iter.next().unwrap().id, "item2");
         assert!(iter.next().is_none());
     }
 
     #[test]
-    fn test_sort() {
-        let mut vec = LookupVec::new();
-        vec.push(create_test_item("c"));
-        vec.push(create_test_item("a"));
-        vec.push(create_test_item("b"));
-
-        vec.sort();
-        
-        let keys: Vec<String> = vec.keys().map(|k| k.to_string()).collect();
-        assert_eq!(keys, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    }
-
-    #[test]
     fn test_split_and_append() {
-        let mut vec1 = LookupVec::new();
-        vec1.push(create_test_item("test1"));
-        vec1.push(create_test_item("test2"));
-        vec1.push(create_test_item("test3"));
+        let mut vec1 = lookupvec![
+            item1(),
+            item2(),
+            item3(),
+        ];
 
         let mut vec2 = vec1.split_off(1);
-        assert_eq!(vec1.len(), 1);
-        assert_eq!(vec2.len(), 2);
+        assert_keys_eq!(vec1, "item1");
+        assert_keys_eq!(vec2, "item2", "item3");
 
         vec1.append(&mut vec2);
-        assert_eq!(vec1.len(), 3);
+        assert_keys_eq!(vec1, "item1", "item2", "item3");
         assert_eq!(vec2.len(), 0);
     }
 
     #[test]
     fn test_drain() {
-        let mut vec = LookupVec::new();
-        vec.push(create_test_item("test1"));
-        vec.push(create_test_item("test2"));
-        vec.push(create_test_item("test3"));
+        let mut vec = lookupvec![
+            item1(),
+            item2(),
+            item3(),
+        ];
 
-        let drained: Vec<TestItem> = vec.drain(1..3).collect();
-        assert_eq!(drained.len(), 2);
-        assert_eq!(vec.len(), 1);
+        let drained: LookupVec<TestItem> = vec.drain(1..3).collect();
+        assert_keys_eq!(vec, "item1");
+        assert_keys_eq!(drained, "item2", "item3");
     }
 
     #[test]
@@ -485,25 +472,137 @@ mod tests {
         assert!(vec.first().is_none());
         assert!(vec.last().is_none());
 
-        vec.push(create_test_item("test1"));
-        vec.push(create_test_item("test2"));
+        vec.push(item1());
+        vec.push(item2());
 
-        assert_eq!(vec.first().unwrap().key(), "test1");
-        assert_eq!(vec.last().unwrap().key(), "test2");
+        assert_eq!(vec.first().unwrap().id, "item1");
+        assert_eq!(vec.last().unwrap().id, "item2");
     }
 
     #[test]
     fn test_index_operations() {
-        let mut vec = LookupVec::new();
-        vec.push(create_test_item("test1"));
-        vec.push(create_test_item("test2"));
-        vec.push(create_test_item("test3"));
+        let mut vec = lookupvec![
+            item1(),
+            item2(),
+            item3(),
+        ];
 
         vec.move_index(0, 2);
-        assert_eq!(vec.get_index(2).unwrap().key(), "test1");
+        assert_keys_eq!(vec, "item2", "item3", "item1");
 
         vec.swap_indices(0, 1);
-        assert_eq!(vec.get_index(0).unwrap().key(), "test3");
-        assert_eq!(vec.get_index(1).unwrap().key(), "test2");
+        assert_keys_eq!(vec, "item3", "item2", "item1");
+    }
+
+    #[test]
+    fn test_from_array() {
+        let arr = [
+            item1(),
+            item2(),
+            item3(),
+        ];
+        let vec = LookupVec::from(arr);
+        assert_keys_eq!(vec, "item1", "item2", "item3");
+    }
+
+    #[test]
+    fn test_extend() {
+        let mut vec = lookupvec![
+            item1(),
+        ];
+
+        let items = vec![
+            item2(),
+            item3(),
+        ];
+        vec.extend(items);
+
+        assert_keys_eq!(vec, "item1", "item2", "item3");
+    }
+
+    //#[test]
+    //fn test_extend_refs() {
+    //    let mut vec = LookupVec::new();
+    //    let item1 = item1();
+    //    let item2 = item2();
+    //    let refs = vec![&item1, &item2];
+
+    //    vec.extend(refs);
+    //    assert_eq!(vec.len(), 2);
+    //    assert_eq!(vec.get_index(0).unwrap().id, "item1");
+    //    assert_eq!(vec.get_index(1).unwrap().id, "item2");
+    //}
+
+    #[test]
+    fn test_sort() {
+        let mut vec = lookupvec![
+            item3(),
+            item1(),
+            item2(),
+        ];
+
+        vec.sort();
+        assert_keys_eq!(vec, "item1", "item2", "item3");
+
+        vec.sort_by(|a, b| b.id.cmp(&a.id));
+        assert_keys_eq!(vec, "item3", "item2", "item1");
+
+        vec.sort_unstable_by(|a, b| a.id.cmp(&b.id));
+        assert_keys_eq!(vec, "item1", "item2", "item3");
+    }
+
+    #[test]
+    fn test_sorted() {
+        let vec = lookupvec![
+            item3(),
+            item1(),
+            item2(),
+        ];
+
+        let sorted: LookupVec<_> = vec.clone().sorted().collect();
+        assert_keys_eq!(sorted, "item1", "item2", "item3");
+
+        let sorted_by: LookupVec<_> = vec.clone().sorted_by(|a, b| b.id.cmp(&a.id)).collect();
+        assert_keys_eq!(sorted_by, "item3", "item2", "item1");
+
+        let sorted_unstable: LookupVec<_> = vec.sorted_unstable_by(|a, b| b.id.cmp(&a.id)).collect();
+        assert_keys_eq!(sorted_unstable_by, "item3", "item2", "item1");
+    }
+
+    #[test]
+    fn test_capacity_management() {
+        let mut vec = LookupVec::with_capacity(10);
+        assert!(vec.capacity() >= 10);
+
+        vec.reserve(5);
+        vec.reserve_exact(5);
+
+        vec.push(item1());
+        vec.push(item2());
+
+        vec.shrink_to(5);
+        assert!(vec.capacity() >= 5);
+
+        vec.shrink_to_fit();
+        assert!(vec.capacity() >= 2);
+    }
+
+    #[test]
+    fn test_index() {
+        let mut vec = lookupvec![
+            item1(),
+            item2(),
+        ];
+
+        // Test immutable indexing
+        let item = &vec[1];
+        assert_eq!(item.id, "item2");
+
+        // Test mutable indexing
+        let item_mut = &mut vec[0];
+        assert_eq!(item_mut.id, "item1");
+
+        item_mut.id = "foo".to_owned();
+        assert_eq!(vec[0].id, "foo");
     }
 }

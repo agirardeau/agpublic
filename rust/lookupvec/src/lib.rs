@@ -70,6 +70,8 @@
 
 pub mod core;
 pub mod iter;
+#[macro_use]
+mod macros;
 #[cfg(feature = "serde")]
 pub mod serde;
 //pub mod slice;
