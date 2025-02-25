@@ -3,7 +3,6 @@ name = "lookupvec_derive"
 description = "Derive macro for LookupVec items"
 version = "0.1.0"
 edition = "2021"
-rust_version = "1.63"
 license = "MIT"
 repository = "https://github.com/agirardeau/agpublic"
 keywords = ["lookupvec"]
