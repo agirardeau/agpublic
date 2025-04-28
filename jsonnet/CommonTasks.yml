@@ -2,13 +2,19 @@ version: 3
 
 vars:
   VENDOR_DIR: "{{ .TASK_DIR }}/vendor"
-  # Include the local agpublic/jsonnet directory so that local
-  # changes to dependencies in this repo are used.
-  LOCAL_DEP_DIR: "{{ .TASKFILE_DIR }}"
+  JSONNET_ARGS:
+    - -t 200
+    - -J {{ .VENDOR_DIR }}
+    - '{{ .EXTRA_JSONNET_ARGS | join " "}}'
+    - -J {{ .TASK_DIR }}
 
 tasks:
-  # Run like:
+  # Run a single test like the following:
   #   task core:test -- manifest_test.jsonnet
   test:
     cmds:
-      - "jsonnet -t 200 -J {{ .TASK_DIR }} -J {{ .LOCAL_DEP_DIR }} -J {{ .VENDOR_DIR }} {{ .CLI_ARGS }}"
+      - jsonnet {{ join " " .JSONNET_ARGS }} {{ .CLI_ARGS }}
+
+  install-deps:
+    cmds:
+      - jb install

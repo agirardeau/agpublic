@@ -1,5 +1,17 @@
 version: 3
 
+vars:
+  EXTRA_JSONNET_ARGS: [
+    # By default, use local versions of packages in this repo rather than
+    # github main branch. Comment this line to change.
+    '-J {{ .TASKFILE_DIR }}',
+
+    # Uncomment to use a local version of a dependency during development.
+    # Alternatively, add EXTRA_JSONNET_ARGS to vars block under a particular
+    # include to use that local dependency for a single module only.
+    #'-J /home/<name>/<blah>/<repo>',
+  ]
+
 includes:
   core:
     taskfile: CommonTasks.yml
