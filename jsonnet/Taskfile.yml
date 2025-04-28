@@ -1,0 +1,13 @@
+version: 3
+
+includes:
+  core:
+    taskfile: CommonTasks.yml
+    dir: ./core
+  terra:
+    taskfile: CommonTasks.yml
+    dir: ./terra
+  xml:
+    taskfile: CommonTasks.yml
+    dir: ./xml
+

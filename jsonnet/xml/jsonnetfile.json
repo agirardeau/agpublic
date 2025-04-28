@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "dependencies": [
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/agirardeau/agpublic.git",
+          "subdir": "jsonnet/core"
+        }
+      },
+      "version": "main"
+    }
+  ],
+  "legacyImports": true
+}
