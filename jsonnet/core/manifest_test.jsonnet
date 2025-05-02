@@ -7,7 +7,7 @@ local utils = import "./utils.libsonnet";
 test.suite({
   ['test_%s' % [tc.name]]: {
     #actual: manifest.manifest(tc.instance),
-    actual: tc.instance.jsonPretty(),
+    actual: tc.instance.jsonPretty(utils.get(tc, 'options', {})),
     expect: utils.trim(tc.expect),
   }
   for tc in [
@@ -203,6 +203,46 @@ test.suite({
             true,
             null
           ]
+        }
+      |||,
+    },
+    {
+      name: 'mutators',
+      instance: manifest.Manifest + {
+        foo: {
+          bar: 0.12345,
+          baz: manifest.Manifest + {
+            qux: 0.12345,
+          },
+        },
+      },
+      options: {
+        value_mutators: [manifest.mutators.round(3)],
+      },
+      expect: |||
+        {
+          "foo": {
+            "bar": 0.123,
+            "baz": {
+              "qux": 0.123
+            }
+          }
+        }
+      |||,
+    },
+    {
+      name: 'templated_value',
+      instance: manifest.Manifest + {
+        foo:: 0.12345,
+        bar:: 'qux',
+        baz: manifest.template('%s, %s', [self.foo, self.bar])
+      },
+      options: {
+        value_mutators: [manifest.mutators.round(3)],
+      },
+      expect: |||
+        {
+          "baz": "0.123, qux"
         }
       |||,
     },

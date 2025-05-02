@@ -194,7 +194,7 @@
     std.slice(arr, index_processed, end_processed, step),
 
   // std.foldl() with different signature. Provided accumulation function should
-  // be of form function(res, item).
+  // be of form function(partial_result, new_item).
   fold(arr, init, fn)::
     std.foldl(
       fn,
@@ -203,7 +203,7 @@
     ),
 
   // std.foldr() with different signature. Provided accumulation function should
-  // be of form function(res, item).
+  // be of form function(partial_result, new_item).
   foldReverse(arr, init, fn)::
     std.foldr(
       function(res, item) fn(item, res),
@@ -222,6 +222,14 @@
       else $.get(obj[field[0]], field[1:], default)
     else error('utils.get(): Expected field to be a string or array, found %s' % [std.type(field)]),
 
+  // Apply each function in fns to value, in order. Each function should be of
+  // the form function(partial_result).
+  applyAll(value, fns)::
+    $.fold(fns, value, function(res, fn) fn(res)),
+
+  isPrimitive(value)::
+    std.member(['string', 'number', 'boolean', 'null'], std.type(value)),
+
   #// Matcher for jsonnetunit with better output for multiline strings
   #MULTILINE_STRING_MATCHER: function(actual, expected)
   #  super.matcher(actual, expected) + {
@@ -235,4 +243,6 @@
   #      %s
   #    ||| % [actual, expected],
   #},
+
+  snakeCaseToKebabCase(x):: std.strReplace(x, '_', '-'),
 }
