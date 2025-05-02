@@ -28,7 +28,7 @@ local utils = import 'common/utils.libsonnet';
         core.field('hash_key_type').string(),
         core.field('read_capacity').number(),
         core.field('write_capacity').number(),
-        core.field('attributes').children(),
+        core.field('attributes').arrayOfObject().children(),
       ],
     }],
     __manifest__+:: {

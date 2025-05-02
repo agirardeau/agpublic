@@ -133,7 +133,7 @@ local utils = import 'common/utils.libsonnet';
       name: 'ecs.TaskDefinition',
       validators: [
         core.field('family').required(),
-        core.field('container_definitions').nonEmpty().children(),
+        core.field('container_definitions').nonEmpty().arrayOfObject().children(),
         core.field('task_role').required(),
         core.field('execution_role').required(),
       ],
@@ -164,7 +164,7 @@ local utils = import 'common/utils.libsonnet';
         validators: [
           core.field('name').required(),
           core.field('image').required(),
-          core.field('port_mappings').children(),
+          core.field('port_mappings').arrayOfObject().children(),
         ],
       }],
 
@@ -287,7 +287,7 @@ local utils = import 'common/utils.libsonnet';
         name: 'ecs.LifecyclePolicy.Rule',
         validators: [
           core.field('priority').required(),
-          core.field('selection').required().child(),
+          core.field('selection').required().object().child(),
         ]
       }],
 

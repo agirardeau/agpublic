@@ -33,7 +33,7 @@ local utils = import 'common/utils.libsonnet';
         core.field('assume_role_service_url').required().string(),
         core.field('path').required().string(),
         core.field('max_session_duration_s').number(),
-        core.field('assume_role_policy_document').child(),
+        core.field('assume_role_policy_document').object().child(),
       ],
     }],
     __manifest__+:: {
@@ -64,10 +64,10 @@ local utils = import 'common/utils.libsonnet';
     __validate__+:: [{
       name: 'iam.Policy',
       validators: [
-        core.field('statements').children(),
+        core.field('statements').arrayOfObject().children(),
         core.field('version').string(),
         core.field('path').string(),
-        core.field('policy_document').child(),
+        core.field('policy_document').object().child(),
       ],
     }],
     __manifest__+:: {
@@ -84,7 +84,7 @@ local utils = import 'common/utils.libsonnet';
         name: 'iam.Policy.Document',
         validators: [
           core.field('version').string(),
-          core.field('statements').children(),
+          core.field('statements').arrayOfObject().children(),
         ],
       }],
       __manifest__+:: {
@@ -106,7 +106,7 @@ local utils = import 'common/utils.libsonnet';
       __validate__+:: [{
         name: 'iam.Policy.Statement',
         validators: [
-          core.field('action').required().typeAnyOf(['string', 'array']),
+          core.field('action').required().typeAny(['string', 'array']),
           core.field('effect').required().string(),
         ],
       }],

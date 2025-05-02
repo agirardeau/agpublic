@@ -18,8 +18,8 @@ local utils = import 'common/utils.libsonnet';
       name: 'terra.Config',
       validators+: [
         core.field('name').required(),
-        core.field('providers').nonEmpty().children(),
-        core.field('contents').children(),
+        core.field('providers').nonEmpty().arrayOfObject().children(),
+        core.field('contents').containerOfObject().ignoreNulls().children(),
       ],
       debug+: ['name'],
     }],
@@ -370,7 +370,7 @@ local utils = import 'common/utils.libsonnet';
     __validate__+:: [{
       name: 'terra.Bundle',
       validators: [
-        core.field('children').children().ignoreNulls(),
+        core.field('children').arrayOfObject().ignoreNulls().children(),
       ],
     }],
   },

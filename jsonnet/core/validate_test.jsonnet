@@ -57,7 +57,7 @@ test.suite({
             validate.field('foo')
               .required()
               .number()
-              .typeAnyOf(['number'])
+              .typeAny(['number'])
               .gt(2)
               .gte(3)
               .lt(4)
@@ -130,7 +130,7 @@ test.suite({
         __validate__+:: [{
           name: 'validate_test.TestClass',
           validators+: [
-            validate.field('foo').typeAnyOf(['number', 'string']),
+            validate.field('foo').typeAny(['number', 'string']),
           ],
         }]
       },
@@ -178,7 +178,7 @@ test.suite({
         __validate__+:: [{
           name: 'validate_test.TestClass',
           validators+: [
-            validate.field('foo').elementTypeAnyOf(['number', 'string']),
+            validate.field('foo').elementTypeAny(['number', 'string']),
           ],
         }]
       },

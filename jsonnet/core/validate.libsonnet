@@ -194,11 +194,16 @@ local private = {
 
   ValidationResult: private.ValidationResult,
 
-  assertValid(obj, options={})::
-    local res = $.validate(obj, options);
-    assert res.is_valid : res.describe();
-    obj,
+  // TODO - delete assertValid() once everything is using validated() instead
+  #assertValid(obj, options={})::
+  #  local res = $.validate(obj, options);
+  #  assert res.is_valid : res.describe();
+  #  obj,
 
+  validated(obj, options={})::
+    local res = $.validate(obj, options);
+    if !res.is_valid then error(res.describe()) else obj,
+  
   validate(obj, options={})::
     local opts = private.ValidationOptions + options;
     utils.fold(
@@ -220,15 +225,14 @@ local private = {
         }),
     ),
 
-  validated(obj, options={})::
-    local res = $.validate(obj, options);
-    if !res.is_valid then error(res.describe()) else obj,
-  
   // I guess this is just an interface right now, it doesn't have logic
   Validator: {
     validate(obj, options={}):: $.ValidationResult.failure('Validator has no implementation'),
   },
 
+  // Return a validator checks whether the object passes a custom function. The
+  // function should return null if the field is valid, or a string describing
+  // the failure if it is invalid.
   check(fn):: $.Validator + {
     validate(obj, options={})::
       local output = fn(obj);
@@ -241,6 +245,94 @@ local private = {
     local this = self,
 
     fieldname: null,
+
+    // Validate that the field is set to a non-null value
+    required():: self + { required_::: true },
+
+    // Validate that the field is set to the provided type if it is not null
+    type(type)::
+      assert std.type(type) == 'string' : 'validate.FieldValidator.type(): `type` argument should be a string, found `%s`' % [std.type(type)];
+      self + { type_::: type },
+    typeAny(types):: self + { type_any_of_::: std.set(types) },
+    boolean():: self.type('boolean'),
+    string():: self.type('string'),
+    number():: self.type('number'),
+    fn():: self.type('function'),
+    array():: self.type('array'),
+    object():: self.type('object'),
+    container():: self.typeAny(['array', 'object']),
+
+    // Validate that elements of the (array or object) field are of the given
+    // type
+    elementType(type)::
+      assert std.type(type) == 'string' : 'validate.FieldValidator.elementType(): `type` argument should be a string, found `%s`' % [std.type(type)];
+      self + { element_type_::: type },
+    // Validate that elements of the (array or object) field are one of the
+    // given types
+    elementTypeAny(types):: self + { element_type_any_of_::: std.set(types) },
+    // Whether null values are ignored when type checking array/object elements
+    ignoreNulls():: self + { ignore_nulls_::: true },
+
+    // Convenience methods for type checking arrays and their elements
+    arrayOf(type):: self.array().elementType(type),
+    arrayOfAny(types):: self.array().elementTypeAny(types),
+    arrayOfBoolean():: self.array().elementType('boolean'),
+    arrayOfString():: self.array().elementType('string'),
+    arrayOfNumber():: self.array().elementType('number'),
+    arrayOfFunction():: self.array().elementType('function'),
+    arrayOfArray():: self.array().elementType('array'),
+    arrayOfObject():: self.array().elementType('object'),
+
+    // Convenience methods for type checking objects and their elements
+    objectOf(type):: self.object().elementType(type),
+    objectOfAny(types):: self.object().elementTypeAny(types),
+    objectOfBoolean():: self.object().elementType('boolean'),
+    objectOfString():: self.object().elementType('string'),
+    objectOfNumber():: self.object().elementType('number'),
+    objectOfFunction():: self.object().elementType('function'),
+    objectOfArray():: self.object().elementType('array'),
+    objectOfObject():: self.object().elementType('object'),
+
+    // Convenience methods for type checking containers (arrays/objects) and
+    // their elements
+    containerOf(type):: self.container().elementType(type),
+    containerOfAny(types):: self.container().elementTypeAny(types),
+    containerOfBoolean():: self.container().elementType('boolean'),
+    containerOfString():: self.container().elementType('string'),
+    containerOfNumber():: self.container().elementType('number'),
+    containerOfFunction():: self.container().elementType('function'),
+    containerOfArray():: self.container().elementType('array'),
+    containerOfObject():: self.container().elementType('object'),
+
+    // Validate that the field meets certain bounds if it is not null
+    gt(bound):: self + { gt_::: bound },
+    gte(bound):: self + { gte_::: bound },
+    lt(bound):: self + { lt_::: bound },
+    lte(bound):: self + { lte_::: bound },
+    neq(value):: self + { neq_+::: [value] },
+    oneOf(values):: self + { one_of_::: values },
+
+    nonEmpty():: self + {
+      non_empty_::: true,
+      // If type_any_of is unset, set it to the types that are valid for std.length()
+      type_any_of_::: utils.ifNull(super.type_any_of_, ['string', 'array', 'object'])
+    },
+
+    // Validate that the field passes a custom check function. The function
+    // should return null if the field is valid, or a string describing the
+    // failure if it is invalid.
+    check(check)::
+      assert std.type(check) == 'function' : 'validate.FieldValidator.check(): `check` argument should be a function, found `%s`' % [std.type(check)];
+      self + { check_::: check },
+
+    // If set, validation will be performed on the child field if it is an
+    // object. To reject non-objects, call object() separately.
+    child():: self + { child_::: true },
+    // If set, validation will be performed on elements of the child field if
+    // they are objects. To reject non-objects, call arrayOf('object')
+    // separately.
+    children():: self + { children_::: true },
+
     required_:: false,
     type_:: null,
     type_any_of_:: null,
@@ -334,7 +426,7 @@ local private = {
       else if self.check_ != null && self.check_(value) != null
       then $.ValidationResult.failure('Field `%s` failed check function with message: %s' % [this.fieldname, self.check_(value)])
 
-      else if self.child_
+      else if self.child_ && std.isObject(value)
       then $.validate(value).withFieldContext(private.ValidationContext.FieldContext + {
         name: this.fieldname,
       })
@@ -350,7 +442,7 @@ local private = {
           index: res.index + 1,
           result:
             // Short circuit if an invalid child was already found
-            if !res.result.is_valid || (this.ignore_nulls_ && child == null)
+            if !res.result.is_valid || !std.isObject(child)
             then res.result
             else $.validate(child).withFieldContext(private.ValidationContext.FieldContext + {
               name: this.fieldname,
@@ -365,7 +457,7 @@ local private = {
         $.ValidationResult.success(),
         function(res, child_entry)
           // Short circuit if an invalid child was already found
-          if !res.is_valid || (this.ignore_nulls_ && child_entry.value == null)
+          if !res.is_valid || !std.isObject(child_entry.value)
           then res
           else $.validate(child_entry.value).withFieldContext(private.ValidationContext.FieldContext + {
             name: this.fieldname,
@@ -374,49 +466,6 @@ local private = {
       )
 
       else $.ValidationResult.success(),
-
-    required():: self + { required_::: true },
-
-    type(type)::
-      assert std.type(type) == 'string' : 'validate.FieldValidator.type(): `type` argument should be a string, found `%s`' % [std.type(type)];
-      self + { type_::: type },
-    typeAnyOf(types):: self + { type_any_of_::: std.set(types) },
-    elementType(type)::
-      assert std.type(type) == 'string' : 'validate.FieldValidator.elementType(): `type` argument should be a string, found `%s`' % [std.type(type)];
-      self + { element_type_::: type },
-    elementTypeAnyOf(types):: self + { element_type_any_of_::: std.set(types) },
-    boolean():: self.type('boolean'),
-    string():: self.type('string'),
-    number():: self.type('number'),
-    fn():: self.type('function'),
-    array():: self.type('array'),
-    object():: self.type('object'),
-
-    arrayOf(type):: self.array().elementType(type),
-    objectOf(type):: self.object().elementType(type),
-    arrayOfAny(types):: self.array().elementTypeAnyOf(types),
-    objectOfAny(types):: self.object().elementTypeAnyOf(types),
-
-    gt(bound):: self + { gt_::: bound },
-    gte(bound):: self + { gte_::: bound },
-    lt(bound):: self + { lt_::: bound },
-    lte(bound):: self + { lte_::: bound },
-    neq(value):: self + { neq_+::: [value] },
-    oneOf(values):: self + { one_of_::: values },
-
-    nonEmpty():: self + {
-      non_empty_::: true,
-      // If type_any_of is unset, set it to the types that are valid for std.length()
-      type_any_of_::: utils.ifNull(super.type_any_of_, ['string', 'array', 'object'])
-    },
-
-    check(check)::
-      assert std.type(check) == 'function' : 'validate.FieldValidator.check(): `check` argument should be a function, found `%s`' % [std.type(check)];
-      self + { check_::: check },
-
-    child():: self + { child_::: true },
-    children():: self + { children_::: true },
-    ignoreNulls():: self + { ignore_nulls_::: true },
   },
 
   field(fieldname):: $.FieldValidator + {

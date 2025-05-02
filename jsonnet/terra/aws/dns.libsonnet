@@ -317,7 +317,7 @@ local utils = import 'common/utils.libsonnet';
       name: 'dns.CloudMapService',
       validators: [
         core.field('name').required().string(),
-        core.field('dns_config').child(),
+        core.field('dns_config').object().child(),
       ],
     }],
 
@@ -337,7 +337,7 @@ local utils = import 'common/utils.libsonnet';
         name: 'dns.CloudMapService.DnsConfig',
         validators: [
           core.field('cloud_map_namespace').required().object(),
-          core.field('dns_records').children(),
+          core.field('dns_records').arrayOfObject().children(),
         ],
       }],
 

@@ -107,7 +107,7 @@ local utils = import 'common/utils.libsonnet';
       name: 'lang.TerraformBlock',
       validators: [
         core.field('required_version').required().string(),
-        core.field('backend').child(),
+        core.field('backend').object().child(),
       ],
     }],
     __manifest__+:: {
