@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "dependencies": [
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/agirardeau/agpublic.git",
+          "subdir": "jsonnet/core"
+        }
+      },
+      "version": "639b9a54c93065f956114c23c55dd70221573ccb",
+      "sum": "2bajfvFxHbR19o1AFjl46kx8otQ+gJ+NEUI4EhvtCVs="
+    },
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/jsonnet-libs/xtd.git",
+          "subdir": ""
+        }
+      },
+      "version": "4eee017d21cb63a303925d1dcd9fc5c496809b46",
+      "sum": "Kh0GbIycNmJPzk6IOMXn1BbtLNyaiiimclYk7+mvsns="
+    },
+    {
+      "source": {
+        "git": {
+          "remote": "https://github.com/yugui/jsonnetunit.git",
+          "subdir": ""
+        }
+      },
+      "version": "6927c58cae7624a00f368b977ccc477d4f74071f",
+      "sum": "GqkCWQTl1RpvdyO6BNxpQ8qIpW5D6bqkyxTKZjsaaNY="
+    }
+  ],
+  "legacyImports": false
+}
