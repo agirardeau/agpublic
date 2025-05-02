@@ -1,0 +1,2 @@
+[*.{jsonnet,libsonnet}]
+indent_size = 2
