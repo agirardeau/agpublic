@@ -229,7 +229,7 @@ local utils = import 'common/utils.libsonnet';
       name: 'terra.NestedContentMixin',
       validators: [
         core.field('label').required(),
-        core.check(function(obj)
+        core.funcValidator(function(obj)
           if obj.is_leaf && !std.objectHas(this, 'block_type') then 'Leaf node must specify `block_type` property'
           else if !obj.is_leaf && !std.objectHas(this, 'children') then 'Non-leaf node must specify `children` property'
           else null,

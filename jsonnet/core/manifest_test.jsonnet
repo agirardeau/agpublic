@@ -256,10 +256,10 @@ test.suite({
           positiveMessage: |||
             FAILED
 
-              got:
+              actual:
             %s
 
-              want:
+              expect:
             %s
           ||| % [actual, expected],
       },

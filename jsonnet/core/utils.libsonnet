@@ -9,6 +9,7 @@
   ifNotEmpty(val, output_if_not_empty, output_if_empty=null)::
     if std.length(val) > 0 then output_if_not_empty else output_if_empty,
 
+  // TODO: rename this to elseNull()
   ifTrue(cond, output_if_true, output_if_false=null)::
     if cond then output_if_true else output_if_false,
 
@@ -84,6 +85,16 @@
   maybeLogged(val, cond, label='')::
     if cond then $.logged(val, label) else val,
 
+  // Normalize input that may be an array, interpretting a non-array value as
+  // a singleton array and null as an empty array.
+  asArray(val)::
+    if std.type(val) == 'array' then
+      val
+    else if val == null then
+      []
+    else
+      [val],
+
   coerceToArray(array_or_object, include_hidden=false)::
     // It might make sense to have this accept scalar values, wrapping them as
     // single-element arrays, but that could get confusing since it's ambiguous
@@ -91,7 +102,7 @@
     // extracted. The main point of this function is to let objects be used as
     // arrays, rather than to let scalar values be used for array arguments as
     // a convenience
-    assert std.member(['array', 'object'], std.type(array_or_object)) : 'Input should be either an array or object';
+    assert std.member(['array', 'object'], std.type(array_or_object)) : 'utils.coerceToArray(): Input should be either an array or object, found %s' % [std.type(array_or_object)];
     if std.type(array_or_object) == 'array' then
       array_or_object
     else if include_hidden then
@@ -245,4 +256,92 @@
   #},
 
   snakeCaseToKebabCase(x):: std.strReplace(x, '_', '-'),
+
+  // Take the first argument that isn't null.
+  // This could be done with utils.fold() instead of fake variadics but this way
+  // is probably more performant?
+  firstNonNull(arg1, arg2, arg3=null, arg4=null)::
+    if arg1 != null then
+      arg1
+    else if arg2 != null then
+      arg2
+    else if arg3 != null then
+      arg3
+    else if arg4 != null then
+      arg4
+    else
+      null,
+  #firstNonNull(ary)::
+  #  utils.fold(
+  #    ary,
+  #    null,
+  #    function(res, item) if res != null then res else item,
+  #  ),
+
+  findFirstWithIndex(arr, pred)::
+    local initial_state = {
+      index: -1,
+      value: null,
+      found: false,
+    };
+    local intermediate = $.fold(
+      arr,
+      initial_state,
+      function(res, elem)
+        local new_index = res.index + 1;
+        if res.found then
+          res
+        else if pred(elem) then
+          {
+            index: new_index,
+            value: elem,
+            found: true,
+          }
+        else
+          res + {
+            index: new_index,
+          }
+    );
+    if intermediate.found then intermediate else intermediate + {
+      index: -1,
+    },
+
+  findFirstWithKey(obj, pred)::
+    local initial_state = {
+      key: null,
+      value: null,
+      found: false,
+    };
+    $.fold(
+      std.objectKeysValues(obj),
+      initial_state,
+      function(res, elem)
+        if res.found then
+          res
+        else if pred(elem.value) then
+          {
+            key: elem.key,
+            value: elem.value,
+            found: true,
+          }
+        else
+          initial_state
+    ),
+  
+  findFirstWithIndexOrKey(obj_or_array, pred)::
+    local res = 
+      if std.isArray(obj_or_array) then
+        $.findFirstWithIndex(obj_or_array, pred)
+      else if std.isObject(obj_or_array) then
+        $.findFirstWithKey(obj_or_array, pred)
+      else
+        error('findFirstWithIndexOrKey(): Expected object or array, found %s' % [std.type(obj_or_array)]);
+    {
+      index_or_key: if std.isArray(obj_or_array) then res.index else res.key,
+      value: res.value,
+      found: res.found
+    },
+  
+  findFirst(obj_or_array, pred)::
+    $.findFirstWithIndexOrKey(obj_or_array, pred).value,
 }

@@ -3,6 +3,7 @@ local manifest = import 'core/manifest.libsonnet';
 local utils = import 'core/utils.libsonnet';
 
 local MANIFEST_OPTIONS = {
+  base_indent: '',
   indent: '  ',
   should_log: false,
   trace_label: '',
@@ -14,7 +15,7 @@ local MANIFEST_OPTIONS = {
   ),
 };
 
-local manifestInternal(elem, options, current_indent='', is_recursion=false) = 
+local manifestInternal(elem, options, is_recursion=false) = 
   local opts = MANIFEST_OPTIONS + options;
   local res =
     if !(std.isObject(elem) || utils.isPrimitive(elem)) then
@@ -27,12 +28,12 @@ local manifestInternal(elem, options, current_indent='', is_recursion=false) =
         for entry in std.objectKeysValues(manifest.transform(elem, opts))
       ]);
       if manifest.isMutatable(elem) then
-        '%s%s' % [current_indent, manifest.applyMutators(elem, opts.value_mutators)]
+        '%s%s' % [opts.base_indent, manifest.applyMutators(elem, opts.value_mutators)]
       else if std.isObject(elem) then
         local mutated_tag = manifest.applyMutators(elem.tag, opts.key_mutators);
         if std.length(elem.has) == 1 && utils.isPrimitive(elem.has[0]) then
           '%s<%s%s>%s</%s>' % [
-            current_indent,
+            opts.base_indent,
             mutated_tag,
             attrs,
             elem.has[0],
@@ -40,16 +41,16 @@ local manifestInternal(elem, options, current_indent='', is_recursion=false) =
           ]
         else if std.length(elem.has) > 0 then
           std.join(maybe_newline, [
-            '%s<%s%s>' % [current_indent, mutated_tag, attrs],
+            '%s<%s%s>' % [opts.base_indent, mutated_tag, attrs],
             std.join(maybe_newline, [
-              manifestInternal(x, opts, current_indent + opts.indent, true)
+              manifestInternal(x, opts + { base_indent: opts.base_indent + opts.indent }, true)
               for x in elem.has
             ]),
-            '%s</%s>' % [current_indent, mutated_tag],
+            '%s</%s>' % [opts.base_indent, mutated_tag],
           ])
         else
           '%s<%s%s></%s>' % [
-            current_indent,
+            opts.base_indent,
             mutated_tag,
             attrs,
             mutated_tag,
@@ -109,7 +110,7 @@ local manifestInternal(elem, options, current_indent='', is_recursion=false) =
       overlay+: {
         [if std.length(this.style) != 0 then 'style' else null]:  manifest.template(
           std.join(';', [
-            k + ':%s'
+            utils.snakeCaseToKebabCase(k) + ':%s'
             for k in std.objectFields(this.style)
           ]),
           std.objectValues(this.style),
