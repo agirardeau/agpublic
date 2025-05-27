@@ -2,8 +2,10 @@
 //  Syntax reference: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_syntax/Syntax
 //  A reasonable AST: https://github.com/csstree/csstree/blob/master/docs/ast.md
 local core = import 'core/core.libsonnet';
+local math2d = import 'core/math2d.libsonnet';
 local utils = import 'core/utils.libsonnet';
 
+// Issue~
 // Sometimes a Node wants to defer to a child node to determine what
 // whitespace or delimiters to include around it. For example, Declaration
 // would like to defer to ListValue to decide whether to start a new (indented)
@@ -80,6 +82,9 @@ local renderNodes(nodes, options={}) =
     [renderNode(x, opts) for x in nodes];
 
 {
+  pxToIn(px): px / 96,
+  inToPx(inches):: inches * 96,
+
   render(rules, options={}, current_indent='')::
     local opts = RENDER_OPTIONS + options;
     std.join('\n\n', [
@@ -95,6 +100,13 @@ local renderNodes(nodes, options={}) =
         core.field('render').required().fn(),
       ],
     }],
+    // TODO - try using `transform` to make css nodes always serialize to
+    // strings to see if that simplifies code
+    // Might want to pass manifest options to transform() as optional second
+    // argument so that stuff like indent can be respected
+    //__manifest__+:: {
+    //  transform(obj):: renderNode(obj),
+    //},
   },
 
   Statement: $.Node + {
@@ -291,7 +303,7 @@ local renderNodes(nodes, options={}) =
     #render(_):: '%s(%s)' % [this.function_name, std.join(', ', this.args)],
     #render(_):: '%s(%s)' % [this.function_name, std.join(', ', utils.asArray(this.args))],
     #render(_):: '%s(%s)' % [this.function_name, this.args],
-    render(_):: '%s(%s)' % [this.function_name, std.join(', ', renderNodes(this.args))],
+    render(_={}):: '%s(%s)' % [this.function_name, std.join(', ', renderNodes(this.args))],
   },
   
   call(fn, args=[]):: $.Call + {
@@ -318,7 +330,7 @@ local renderNodes(nodes, options={}) =
         core.field('name').required().string(),
       ],
     }],
-    render(_):: self.name,
+    render(_={}):: self.name,
   },
 
   enum(name):: $.Enum + {
@@ -337,10 +349,57 @@ local renderNodes(nodes, options={}) =
         core.field('raw').required().string(),
       ],
     }],
-    render(_):: self.raw,
+    render(_={}):: self.raw,
   },
 
   raw(raw):: $.Raw + {
     raw: raw,
+  },
+
+  Transform:: $.Node + {
+    local this = self,
+    name: null,
+    args: null,
+    __validate__+:: [{
+      name: 'css.Transform',
+      validators: [
+        core.field('name').required().string(),
+        core.field('args').required().array(),
+      ],
+    }],
+
+    #local maybePx(x) = if std.isNumber(x) && x != 0 then '%spx' % [x] else std.toString(x),
+    local maybePx(x) = std.toString(x),
+    render(_={}):: '%s(%s)' % [
+      this.name,
+      std.join(', ', [maybePx(x) for x in this.args]),
+    ],
+
+    renderAll(transforms):: std.join(' ', [x.render() for x in transforms]),
+  },
+
+  // Accepts xy coordinates in any form accepted by math2d.vec()
+  translate(dx, dy=null):: $.Transform + {
+    local vec = math2d.vec(dx, dy),
+    name: 'translate',
+    args: [vec.x, vec.y],
+  },
+
+  #Hsl: core.Object + {
+  #  local this = self
+  #  h: null,
+  #  s: null,
+  #  l: null,
+  #  a: 0,
+  #  __manifest__+:: {
+  #    transform(obj):: 'hsla(%s, %s, %s, %s)' % [h, s, l, a]
+  #  },
+  #},
+
+  color: {
+    rgb(r, g, b):: 'rgb(%s, %s, %s)' % [r, g, b],
+    rgba(r, g, b, a):: 'rgba(%s, %s, %s, %s)' % [r, g, b, a],
+    hsl(h, s, l):: 'hsl(%s, %s, %s)' % [h, s, l],
+    hsla(h, s, l, a):: 'hsla(%s, %s, %s, %s)' % [h, s, l, a],
   },
 }

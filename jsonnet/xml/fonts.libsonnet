@@ -17,6 +17,14 @@ local css = import './css.libsonnet';
     import_rule: css.Import + {
       url: 'https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&amp;display=swap'
     },
+    // I think this doesn't work because the googleapis link is a stylesheet rather than an otf
+    #local this = self,
+    #import_rule: css.FontFace + {
+    #  font_family_name: this.family,
+    #  sources: [
+    #    css.fns.url('https://fonts.googleapis.com/css2?family=STIX+Two+Text:ital,wght@0,400..700;1,400..700&amp;display=swap'),
+    #  ],
+    #},
     family: 'STIX Two Text',
   },
   CAMBRIA_MATH: {

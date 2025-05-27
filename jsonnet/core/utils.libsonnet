@@ -5,11 +5,14 @@
   ifNotNull(val, output_if_not_null, output_if_null=null)::
     if val != null then output_if_not_null else output_if_null,
 
-  // Empty => std.length(input) == 0
+  // Empty => std.length(input) == 0, not std.isEmpty() which only accepts strings
   ifNotEmpty(val, output_if_not_empty, output_if_empty=null)::
     if std.length(val) > 0 then output_if_not_empty else output_if_empty,
 
-  // TODO: rename this to elseNull()
+  elseNull(cond, output_if_true)::
+    if cond then output_if_true else null,
+
+  // TODO: delete this after migrating usages to elseNull()
   ifTrue(cond, output_if_true, output_if_false=null)::
     if cond then output_if_true else output_if_false,
 
@@ -344,4 +347,7 @@
   
   findFirst(obj_or_array, pred)::
     $.findFirstWithIndexOrKey(obj_or_array, pred).value,
+
+  mergeAll(objects)::
+    $.fold(objects, {}, function(state, item) state + item),
 }

@@ -35,7 +35,9 @@ local core = import './core.libsonnet';
     y: radius * std.sin($.deg2rad(azimuthDegrees)),
   },
 
-  origin():: $.Vector + {
+  // TODO: rename usages of `origin` to `zeros`
+  origin():: $.zeros,
+  zeros():: $.Vector + {
     x: 0,
     y: 0,
   },
@@ -61,6 +63,21 @@ local core = import './core.libsonnet';
       $.Vector + {
         x: this.x + other_normalized.x,
         y: this.y + other_normalized.y,
+      },
+
+    sub(other, other_y=null)::
+      local other_normalized = $.vec(other, other_y);
+      $.Vector + {
+        x: this.x - other_normalized.x,
+        y: this.y - other_normalized.y,
+      },
+
+    // Elementwise multiply by another 2d vec
+    mult(other, other_y=null)::
+      local other_normalized = $.vec(other, other_y);
+      $.Vector + {
+        x: this.x * other_normalized.x,
+        y: this.y * other_normalized.y,
       },
   },
 }

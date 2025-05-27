@@ -10,11 +10,39 @@ local xml = import './xml.libsonnet';
 local boolAsInt(bool) = if bool then 1 else 0;
 
 {
+  VerticalAlign: {
+    TOP: 'top',
+    CENTER: 'center',
+    BOTTOM: 'bottom',
+  },
+
+  HorizontalAlign: {
+    LEFT: 'left',
+    CENTER: 'center',
+    RIGHT: 'right',
+  },
+
   Element: xml.StyleElement + {
+    local this = self,
+
+    transforms:: [],
     xml(options={}):: super.xml({
       snake_to_kebab_case: true,
       key_mutators+: utils.singletonArrayIf(self.snake_to_kebab_case, utils.snakeCaseToKebabCase),
     } + options),
+
+    __validate__+:: [{
+      name: 'svg.Element',
+      validators: [
+        core.field('transforms').arrayOfObject().children(),
+      ],
+    }],
+    __manifest__+:: {
+      overlay+: {
+        transform: utils.ifNotEmpty(this.transforms, css.Transform.renderAll(this.transforms)),
+      },
+    },
+
   },
 
   Svg: $.Element + {
@@ -23,38 +51,46 @@ local boolAsInt(bool) = if bool then 1 else 0;
     is_inline:: false,
     xmlns: if self.is_inline then null else 'http://www.w3.org/2000/svg',
     size:: null,
-    width: self.size.x,
-    height: self.size.y,
+    location:: null,
     origin:: $.Svg.Origin.TOP_LEFT,
     viewBox: 
       if self.origin == $.Svg.Origin.TOP_CENTER then
-        manifest.template('%s 0 %s %s', [-self.width/2, self.width, self.height])
+        manifest.template('%s 0 %s %s', [-self.size.x/2, self.size.x, self.size.y])
       else if self.origin == $.Svg.Origin.LEFT_CENTER then
-        manifest.template('0 %s %s %s', [-self.height/2, self.width, self.height])
+        manifest.template('0 %s %s %s', [-self.size.y/2, self.size.x, self.size.y])
       else if self.origin == $.Svg.Origin.CENTER then
-        manifest.template('%s %s %s %s', [-self.width/2, -self.height/2, self.width, self.height])
+        manifest.template('%s %s %s %s', [-self.size.x/2, -self.size.y/2, self.size.x, self.size.y])
       else
-        manifest.template('0 0 %s %s', [self.width, self.height]),
+        manifest.template('0 0 %s %s', [self.size.x, self.size.y]),
 
     // Array of css at-rules
     style_rules:: [],
-    has+:: [
+    has+:: utils.singletonArrayIf(
+      std.length(this.style_rules) > 0,
       $.Element + {
         tag:: 'style',
         has:: [
           css.render(this.style_rules),
         ],
       },
-    ],
+    ),
 
     __validate__+:: [{
       name: 'svg.Svg',
       validators: [
-        core.field('width').required(),
-        core.field('height').required(),
+        core.field('size').required().object(),
+        core.field('location').object(),
         core.field('origin').string(),
       ],
     }],
+    __manifest__+:: {
+      overlay+: {
+        width: this.size.x,
+        height: this.size.y,
+        x: utils.elseNull(this.location != null, this.location.x),
+        y: utils.elseNull(this.location != null, this.location.y),
+      },
+    },
 
     Origin:: {
       TOP_LEFT: 'top-left',
@@ -65,22 +101,27 @@ local boolAsInt(bool) = if bool then 1 else 0;
   },
 
   ForeignObject: $.Element + {
+    local this = self,
     tag:: 'foreignObject',
     size:: null,
-    width: utils.ifNotNull(self.size, self.size.x),
-    height: utils.ifNotNull(self.size, self.size.y),
     location:: null,
-    x: utils.ifNotNull(self.location, self.location.x) - self.width/2,
-    y: utils.ifNotNull(self.location, self.location.y) - self.height/2,
     __validate__+:: [{
       name: 'svg.ForeignObject',
       validators: [
-        core.field('x').required(),
-        core.field('y').required(),
-        core.field('width').required(),
-        core.field('height').required(),
+        core.field('size').required().object(),
+        core.field('location').required().object(),
       ],
     }],
+    __manifest__+:: {
+      overlay+: {
+        width: this.size.x,
+        height: this.size.y,
+        #x: this.location.x,
+        #y: this.location.y,
+        x: this.location.x - this.width/2,
+        y: this.location.y - this.height/2,
+      },
+    },
   },
 
   MathML: $.ForeignObject + {
@@ -103,13 +144,174 @@ local boolAsInt(bool) = if bool then 1 else 0;
     has:: [this.div],
   },
 
+  Group: $.Element + {
+    tag:: 'g',
+  },
+
+  Text: $.Element + {
+    local this = self,
+
+    tag:: 'text',
+    content:: null,
+    location:: null,
+    text_length: null,
+
+    has+:: utils.asArray(this.content),
+
+    __validate__+:: [{
+      name: 'svg.Text',
+      validators: [
+        core.field('content').required(),
+        core.field('location').required().object(),
+      ],
+    }],
+    __manifest__+:: {
+      rename+: {
+        text_length: 'textLength',
+      },
+      overlay+: {
+        x: this.location.x,
+        y: this.location.y,
+      },
+    },
+  },
+
+  text(content, location):: $.Text + {
+    content:: content,
+    location:: math2d.vec(location),
+  },
+
+  #WrappedTextMixin: {
+  #  style+:: {
+  #    white_space: 'pre-line',
+  #  },
+  #},
+
+  // This centers text around the xy coordinates of the text element
+  CenteredTextMixin: {
+    dominant_baseline: 'middle',
+    text_anchor: 'middle',
+  },
+  // Convenience template for a rect containing text
+  TextBox: $.Group + {
+    local this = self,
+
+    size:: null,
+    location:: null,
+    text_content:: null,
+    vertical_align:: 'center',
+    horizontal_align:: 'center',
+    mx:: 0,
+    my:: 0,
+
+    rect:: $.Rect + {
+      size:: this.size,
+      location:: this.location,
+    },
+
+    text:: $.Text + {
+      location:: math2d.vec({
+        x:
+          if this.horizontal_align == $.HorizontalAlign.LEFT then
+            this.location.x + this.mx
+          else if this.horizontal_align == $.HorizontalAlign.CENTER then
+            this.location.x + this.size.x / 2
+          else
+            this.location.x + this.size.x - this.mx,
+        y:
+          if this.vertical_align == $.VerticalAlign.TOP then
+            this.location.y + this.my
+          else if this.vertical_align == $.VerticalAlign.CENTER then
+            this.location.y + this.size.y / 2
+          else
+            this.location.y + this.size.y - this.my,
+      }),
+      content:: utils.ifNull(this.text_content, ''),
+      width:: this.size.x,
+      style+:: {
+        // Not clear if this should always be here
+        white_space: 'pre-line',
+      },
+      text_length: this.size.x - (2 * this.mx),
+      text_anchor:
+        if this.horizontal_align == $.HorizontalAlign.LEFT then
+          'start'
+        else if this.horizontal_align == $.HorizontalAlign.CENTER then
+          'middle'
+        else
+          'end',
+      dominant_baseline:
+        if this.vertical_align == $.VerticalAlign.TOP then
+          'hanging'
+        else if this.vertical_align == $.VerticalAlign.CENTER then
+          'central'
+          #'middle'
+        else
+          // This places tails like in the english lowercase "g" below the line
+          // unfortunately, but there aren't better options
+          'text-top',
+    },
+
+    has:: [
+      this.rect,
+      this.text,
+    ],
+
+    __validate__+:: [{
+      name: 'svg.TextBox',
+      validators: [
+        core.field('size').required().object(),
+        core.field('location').required().object(),
+        core.field('horizontal_align').required().oneOf(std.objectValues($.HorizontalAlign)),
+        core.field('vertical_align').required().oneOf(std.objectValues($.VerticalAlign)),
+        core.field('mx').required().number(),
+        core.field('my').required().number(),
+      ],
+    }],
+  },
+
+  Rect: $.Element + {
+    local this = self,
+
+    tag:: 'rect',
+    size:: null,
+    location:: null,
+    roundedness:: math2d.zeros(),
+    fill: 'none',
+    stroke: 'black',
+
+    __validate__+:: [{
+      name: 'svg.Rect',
+      validators: [
+        core.field('size').required().object(),
+        core.field('location').required().object(),
+        core.field('roundedness').required().object(),
+      ],
+    }],
+    __manifest__+:: {
+      overlay+: {
+        width: this.size.x,
+        height: this.size.y,
+        x: this.location.x,
+        y: this.location.y,
+        rx: utils.elseNull(this.roundedness.x != 0, this.roundedness.x),
+        ry: utils.elseNull(this.roundedness.y != 0, this.roundedness.y),
+      },
+    },
+  },
+
+  rect(size, location, roundedness=math2d.zeros()):: $.Rect + {
+    size:: math2d.vec(size),
+    location:: math2d.vec(location),
+    roundedness:: math2d.vec(roundedness),
+  },
+
   Circle: $.Element + {
     local this = self,
 
     tag:: 'circle',
     center:: null,
     radius:: null,
-    local center_normalized = math2d.vec(this.center),
 
     __validate__+:: [{
       name: 'svg.Circle',
@@ -120,8 +322,8 @@ local boolAsInt(bool) = if bool then 1 else 0;
     }],
     __manifest__+:: {
       overlay+: {
-        cx: center_normalized.x,
-        cy: center_normalized.y,
+        cx: this.center.x,
+        cy: this.center.y,
         r: this.radius,
       },
     },
@@ -142,8 +344,8 @@ local boolAsInt(bool) = if bool then 1 else 0;
     __validate__+:: [{
       name: 'svg.Line',
       validators: [
-        core.field('p1').required().typeAny(['object', 'array']),
-        core.field('p2').required().typeAny(['object', 'array']),
+        core.field('p1').required().object(),
+        core.field('p2').required().object(),
       ],
     }],
     __manifest__+:: {
@@ -175,16 +377,13 @@ local boolAsInt(bool) = if bool then 1 else 0;
     }],
     __manifest__+:: {
       overlay+: {
-        points: std.join(' ', [
-          '%s,%s' % [p.x, p.y]
-          for p in this.points
-        ]),
+        points: manifest.templateEach('%s,%s', ' ', this.points, function(x) x.coords()),
       },
     },
   },
 
   polyline(points):: $.Polyline + {
-    points:: [math2d.vec(p) for p in self.points],
+    points:: [math2d.vec(p) for p in points],
   },
 
   Polygon: $.Element + {
@@ -201,16 +400,13 @@ local boolAsInt(bool) = if bool then 1 else 0;
     }],
     __manifest__+:: {
       overlay+: {
-        points: std.join(' ', [
-          '%s,%s' % [p.x, p.y]
-          for p in this.points
-        ]),
+        points: manifest.templateEach('%s,%s', ' ', this.points, function(x) x.coords()),
       },
     },
   },
 
   polygon(points):: $.Polygon + {
-    points:: [math2d.vec(p) for p in self.points],
+    points:: [math2d.vec(p) for p in points],
   },
 
   Path: $.Element + {

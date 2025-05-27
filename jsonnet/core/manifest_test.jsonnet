@@ -222,12 +222,27 @@ test.suite({
       expect: |||
         {
           "foo": {
-            "bar": 0.123,
+            "bar": "0.123",
             "baz": {
-              "qux": 0.123
+              "qux": "0.123"
             }
           }
         }
+      |||,
+    },
+    {
+      name: 'transform',
+      instance: manifest.Manifest + {
+        foo: 0.12345,
+        __manifest__+:: {
+          transform(obj):: obj.foo,
+        },
+      },
+      options: {
+        value_mutators: [manifest.mutators.round(3)],
+      },
+      expect: |||
+        "0.123"
       |||,
     },
     {
@@ -243,6 +258,42 @@ test.suite({
       expect: |||
         {
           "baz": "0.123, qux"
+        }
+      |||,
+    },
+    {
+      name: 'templated_overlay',
+      instance: manifest.Manifest + {
+        local this = self,
+        foo:: 0.12345,
+        bar:: 'qux',
+        __manifest__+:: {
+          overlay+: {
+            baz: manifest.template('%s, %s', [this.foo, this.bar])
+          }
+        },
+      },
+      options: {
+        value_mutators: [manifest.mutators.round(3)],
+      },
+      expect: |||
+        {
+          "baz": "0.123, qux"
+        }
+      |||,
+    },
+    {
+      name: 'template_each',
+      instance: manifest.Manifest + {
+        foo:: [0.12345, 0.98765, 'qux'],
+        bar: manifest.templateEach('%s', ', ', self.foo)
+      },
+      options: {
+        value_mutators: [manifest.mutators.round(3)],
+      },
+      expect: |||
+        {
+          "bar": "0.123, 0.988, qux"
         }
       |||,
     },

@@ -70,7 +70,7 @@ local manifestInternal(elem, options, is_recursion=false) =
       name: 'xml.Element',
       validators: [
         core.field('tag').required().string(),
-        core.field('has').required().children(),
+        core.field('has').required().array().children(),
       ],
       debug+: ['tag'],
     }],

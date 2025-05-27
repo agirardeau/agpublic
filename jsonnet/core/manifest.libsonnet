@@ -2,13 +2,27 @@ local core = import "./core.libsonnet";
 local utils = import "./utils.libsonnet";
 
 {
+  local identity(x) = x,
+
   local DEFAULT_MANIFEST_CONFIG = {
-    rename: {},
+    // Object to overlay onto the 
     overlay: {},
+    // Map where keys are original field names and values are renamed field
+    // names as strings.
+    rename: {},
+    // Whether to include empty-ish values in output.
     prune_null: false,
     prune_empty_list: false,
     prune_empty_object: false,
     prune_false: false,
+    // Additional transform to apply to the object after rename, overlay, and
+    // mutator transforms have been applied. Should be a function accepting one
+    // argument (the partially transformed value). May return any type.
+    transform:: identity, 
+
+    // manifest parameters should be declared with `+:` syntax, this field
+    // allows us to detect if they were not and emit a warning.
+    __inherits_manifest_config__:: true,
   },
 
   local TRANSFORM_OPTIONS = {
@@ -26,25 +40,21 @@ local utils = import "./utils.libsonnet";
     trace_label: '',
   },
 
-  local identity(x) = x,
-
   local transformInternal(value, options) = 
     local opts = TRANSFORM_OPTIONS + options;
     if !std.isObject(value) then 
       error('manifest.transform() expected an object, got %s' % [std.type(value)])
     else
-      local is_manifest_incomplete =
-        std.objectHasAll(value, '__manifest__')
-        && (std.length(utils.get(value, '__manifest__', {}))
-          < std.length(DEFAULT_MANIFEST_CONFIG));
+      local manifest_config = utils.get(value, '__manifest__', DEFAULT_MANIFEST_CONFIG);
       local debugged_value = utils.maybeLogged(
-        value, is_manifest_incomplete, 'VALUE WITH PARTIAL __MANIFEST__!');
-      local manifest_config = utils.get(debugged_value, '__manifest__', DEFAULT_MANIFEST_CONFIG);
-      local overlaid = utils.overlay(value, manifest_config.overlay);
-      {
-        // If the field name is present in manifest_config.rename, use the
-        // value stored there, otherwise use the key unchanged
+        value,
+        !std.objectHasAll(manifest_config, '__inherits_manifest_config__'),
+        'Warning: value with `__manifest__` property that doesn\'t inherit from base. Likely indicates `__manifest__ ` field that doesn\'t use object merge syntax (`+:`)');
+      local overlaid = utils.overlay(debugged_value, manifest_config.overlay);
+      local mutated = {
         [$.applyMutators(
+          // If the field name is present in manifest_config.rename, use the
+          // value stored there, otherwise use the key unchanged
           utils.get(manifest_config.rename, entry.key, entry.key),
           opts.key_mutators,
         )]: $.applyMutators(overlaid[entry.key], opts.value_mutators)
@@ -55,24 +65,30 @@ local utils = import "./utils.libsonnet";
           || (entry.value == {} && manifest_config.prune_empty_object)
           || (entry.value == false && manifest_config.prune_false)
         )
-      },
+      };
+      manifest_config.transform(mutated),
 
   local manifestInternal(value, options, is_recursion=false) =
     local opts = if is_recursion then options else MANIFEST_OPTIONS + options;
     local transformed =
-      if std.type(value) == 'object' then
+      if std.isObject(value) then
+        transformInternal(value, opts)
+      else
+        value;
+    local manifested_but_not_serialized =
+      if std.isObject(transformed) then
         {
           [entry.key]: manifestInternal(entry.value, opts, true)
-          for entry in std.objectKeysValues(transformInternal(value, opts))
+          for entry in std.objectKeysValues(transformed)
         }
-      else if std.type(value) == 'array' then
+      else if std.isArray(transformed) then
         [
           manifestInternal(x, opts, true)
-          for x in $.applyMutators(value, opts.value_mutators)
+          for x in $.applyMutators(transformed, opts.value_mutators)
         ]
-      else $.applyMutators(value, opts.value_mutators);
+      else $.applyMutators(transformed, opts.value_mutators);
     (if is_recursion then identity else opts.serializer)(
-      utils.maybeLogged(transformed, opts.should_log, opts.trace_label),
+      utils.maybeLogged(manifested_but_not_serialized, opts.should_log, opts.trace_label),
     ),
 
   Manifest: {
@@ -107,20 +123,25 @@ local utils = import "./utils.libsonnet";
       } + options),
   },
 
+  // Applies transformations in the `__manifest__` property on both the provided
+  // value and its children, then serializes to a string
   manifest(value, options={})::
     manifestInternal(value, options),
-    #manifestInternal(value, utils.logged(options, 'OPTIONS')),
 
+  // Applies transformations in the `__manifest__` property on both the provided
+  // value and its children, then serializes to a string. Logs to stdout.
   manifestLogged(value, label, options={})::
     manifestInternal(value, {
       should_log: true,
       trace_label: label,
     } + options),
 
+  // Applies transformations in the `__manifest__` property of the provided
+  // value. Does not recursively transform children or serialize to a string.
   transform(value, options={}):: transformInternal(value, options),
 
-  // Value calculated from other values, used to apply mutators to intermediate
-  // results
+  // Value calculated from other values. Allows mutators to apply
+  // intermediate results.
   CalculatedValue: core.Object + {
     local this = self,
 
@@ -177,6 +198,16 @@ local utils = import "./utils.libsonnet";
     template: template,
   },
 
+  // Is this a bad idea? it seems like a recipe for messing up and getting a confusing error message about
+  // wrong number of template terms. Maybe it would be better to use a new class instead of reusing TemplatedValue.
+  templateEach(template, delimiter, items, terms_from_item=function(x) [x]):: $.TemplatedValue + {
+    local terms = utils.flatten([terms_from_item(x) for x in items]),
+    terms: terms,
+    template: std.join(delimiter, std.repeat([template], std.length(items))),
+    #terms: utils.logged(terms, 'TERMS'),
+    #template: utils.logged(std.join(delimiter, std.repeat([template], std.length(items))), 'TEMPLATE'),
+  },
+
   #Mutator: core.Object + {
   #  types: null,
   #  apply(value): if std.contains(self.types, std.type(value)) then self.mutate(value) else value,
@@ -184,6 +215,8 @@ local utils = import "./utils.libsonnet";
   #},
 
   mutators: {
+    // Converts numbers into *string representations* containing at most the
+    // specified precision
     round(digits):: function(x)
       if std.isNumber(x)
       then
