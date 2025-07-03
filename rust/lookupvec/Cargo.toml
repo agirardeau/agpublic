@@ -4,7 +4,7 @@ members = ["derive"]
 [package]
 name = "lookupvec"
 description = "Container with Vec-like properties that also offers O(1) lookup of items based on an id field"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/agirardeau/agpublic"
