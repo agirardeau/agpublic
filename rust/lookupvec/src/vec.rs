@@ -17,13 +17,13 @@ use core::ops::RangeBounds;
 use std::hash::RandomState;
 
 #[cfg(feature = "std")]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct LookupVec<T: Lookup, S = RandomState> {
     map: IndexMap<T::Key, T, S>,
 }
 
 #[cfg(not(feature = "std"))]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct LookupVec<T: Lookup, S> {
     map: IndexMap<T::Key, T, S>,
 }
@@ -262,6 +262,12 @@ where S: BuildHasher + Default {
 impl<T: Lookup, const N: usize> From<[T; N]> for LookupVec<T, RandomState> {
     fn from(arr: [T; N]) -> Self {
         Self::from_iter(arr)
+    }
+}
+
+impl<T: Lookup> Default for LookupVec<T> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
