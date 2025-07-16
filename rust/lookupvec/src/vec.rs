@@ -351,8 +351,9 @@ impl<T: Lookup, S> IndexMut<usize> for LookupVec<T, S> {
 mod tests {
     use super::*;
     use lookupvec_derive::Lookup;
+    use std::rc::Rc;
 
-    #[derive(Debug, PartialEq, Lookup)]
+    #[derive(Debug, Clone, PartialEq, Lookup)]
     struct TestItem {
         #[lookup_key]
         id: String,
@@ -415,15 +416,17 @@ mod tests {
         ];
 
         vec.insert(1, item3());
-        assert_keys_eq!(sorted, "item1", "item3", "item2");
+        assert_keys_eq!(vec, "item1", "item3", "item2");
 
         let removed = vec.shift_remove("item2").unwrap();
         assert_eq!(removed.id, "item2");
-        assert_eq!(vec.len(), 2);
+        assert_keys_eq!(vec, "item1", "item3");
 
         vec.shift_insert(1, item3());
-        assert_keys_eq!(sorted, "item1", "item3", "item2");
+        assert_keys_eq!(vec, "item1", "item3");
 
+        vec.shift_insert(1, item2());
+        assert_keys_eq!(vec, "item1", "item2", "item3");
     }
 
     #[test]
@@ -572,7 +575,7 @@ mod tests {
         assert_keys_eq!(sorted_by, "item3", "item2", "item1");
 
         let sorted_unstable: LookupVec<_> = vec.sorted_unstable_by(|a, b| b.id.cmp(&a.id)).collect();
-        assert_keys_eq!(sorted_unstable_by, "item3", "item2", "item1");
+        assert_keys_eq!(sorted_unstable, "item3", "item2", "item1");
     }
 
     #[test]
@@ -611,4 +614,15 @@ mod tests {
         item_mut.id = "foo".to_owned();
         assert_eq!(vec[0].id, "foo");
     }
+
+    #[test]
+    fn test_deref_impl() {
+        let mut vec = LookupVec::<Rc<TestItem>>::new();
+        vec.push(Rc::new(item1()));
+        vec.push(Rc::new(item2()));
+        assert_eq!(vec.len(), 2);
+        assert_eq!(vec[0].id, "item1");
+        assert_eq!(vec[1].id, "item2");
+    }
+
 }
