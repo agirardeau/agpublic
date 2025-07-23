@@ -7,7 +7,7 @@ license = "MIT"
 repository = "https://github.com/agirardeau/agpublic/rust/infallible-builder"
 categories = ["rust-patterns"]
 keywords = ["builder"]
-readme = "README.md"
+readme = "../README.md"
 
 [dependencies]
 infallible-builder-macro = { version = "0.0.0", path = "../infallible-builder-macro" }
