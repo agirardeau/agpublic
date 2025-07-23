@@ -1,9 +1,29 @@
+
+
+mod exports {
+    pub use infallible_builder_macro::Builder;
+
+    #[doc(hidden)]
+    pub use ::derive_builder;
+
+    #[doc(hidden)]
+    pub use ::unwrap_infallible::UnwrapInfallible;
+}
+
+pub use exports::*;
+
 //pub use infallible_builder_macro::Builder;
-pub use infallible_builder_macro::Builder;
+//#[doc(hidden)]
+//pub use ::derive_builder;
+//#[doc(hidden)]
+//pub use ::unwrap_infallible::UnwrapInfallible;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+
+    use super::exports as infallible_builder;
+    use super::exports::Builder;
+    //use super::*;
     use smart_default::SmartDefault;
 
     #[derive(Default)]

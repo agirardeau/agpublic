@@ -11,10 +11,11 @@ pub fn Builder(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     let builder_name = quote::format_ident!("{name}Builder");
 
     TokenStream::from(quote! {
-        #[derive(derive_builder::Builder)]
+        #[derive(infallible_builder::derive_builder::Builder)]
         #[builder(
             default,
             pattern = "owned",
+            crate = "infallible_builder::derive_builder",
             build_fn(private, name = "build_fallible", error = "std::convert::Infallible"),
             setter(into, strip_option),
         )]
@@ -25,10 +26,10 @@ pub fn Builder(_attrs: TokenStream, item: TokenStream) -> TokenStream {
                 #builder_name::default()
             }
         }
-        
+
         impl #builder_name {
             pub fn build(self) -> #name {
-                use unwrap_infallible::UnwrapInfallible;
+                use infallible_builder::UnwrapInfallible;
                 self.build_fallible().unwrap_infallible()
             }
         }
