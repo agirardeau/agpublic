@@ -1,0 +1,18 @@
+[package]
+name = "infallible-builder"
+description = "Derive macro for infallible implementation of the builder pattern."
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/agirardeau/agpublic/rust/infallible-builder"
+categories = ["rust-patterns"]
+keywords = ["builder"]
+readme = "README.md"
+
+[dependencies]
+infallible-builder-macro = { version = "0.0.0", path = "../infallible-builder-macro" }
+derive_builder = "0.20"
+unwrap-infallible = "0.1"
+
+[dev-dependencies]
+smart-default = "0.7"

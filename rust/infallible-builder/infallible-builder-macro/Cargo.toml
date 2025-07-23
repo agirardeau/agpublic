@@ -1,0 +1,16 @@
+[package]
+name = "infallible-builder-macro"
+description = "Macro crate for infallible-builder. Do not use this crate directly."
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/agirardeau/agpublic"
+keywords = ["builder", "infallible"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
