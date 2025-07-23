@@ -2,6 +2,8 @@
 
 Macro crate for generating infallible Builder interfaces.
 
+You should probably just use `typed-builder` instead.
+
 ## Example Usage
 
 ```toml
@@ -47,36 +49,6 @@ pub struct Line {
     color: Color,
 }
 ```
-
-## Design Philosophy
-
-Compared to other crates (e.g. [derive_builder]
-(https://docs.rs/derive_builder/latest/derive_builder/index.html),
-[typed-builder]
-(https://docs.rs/typed-builder/latest/typed_builder/index.html)),
-`infallible-builder` is more opinionated. It
-generates builder types only with the following restrictions:
-
-* Builders do not require fields, i.e. `MyType::builder().build()` is always
-  allowed
-* Builder methods are thin setters, at most calling `.into()`
-* Builders do not contain additional logic or functionality, such as validation or
-  serialization
-
-This has some direct benefits:
-    
-* The `build()` method is always infallible, improving ergonomics
-* The builder interface is self apparent from the base struct
-
-`infallible-builder` makes other opinionated choices with the goal of builders
-for different base structs having consistent interfaces:
-
-* `setter(into, strip_option)` is configured by default
-* The "owned" pattern is used rather than the "mutable" pattern, since "mutable"
-  disallows structs with non-`Clone` fields
-
-It is this crate author's opinion that builder customizability is ultimately
-detrimental, mostly enabling use cases where builders are not an ideal fit.
 
 ### Implementation Notes
 
