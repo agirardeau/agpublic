@@ -1,14 +1,13 @@
 //pub use infallible_builder_macro::Builder;
-pub use infallible_builder_macro::InfallibleBuilder;
+pub use infallible_builder_macro::Builder;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use smart_default::SmartDefault;
 
-    //#[derive(Default, Builder)]
     #[derive(Default)]
-    #[InfallibleBuilder]
+    #[Builder]
     struct Person {
         name: String,
         age: i64,
@@ -26,10 +25,10 @@ mod tests {
     }
 
     #[test]
-    fn builder_is_mutable() {
+    fn builder_is_owned() {
         let mut person_builder = Person::builder();
-        person_builder.name("Bob");
-        person_builder.age(25);
+        person_builder = person_builder.name("Bob");
+        person_builder = person_builder.age(25);
         let person = person_builder.build();
         assert_eq!(person.name, "Bob");
         assert_eq!(person.age, 25);
@@ -56,14 +55,14 @@ mod tests {
     fn builder_works_with_smart_default() {
         //#[derive(SmartDefault, Builder)]
         #[derive(PartialEq, SmartDefault)]
-        #[InfallibleBuilder]
+        #[Builder]
         struct Animal {
             #[default(Species::Dog)]
             pub species: Species,
         }
 
         // Non-Default type
-        #[derive(Debug, Clone, PartialEq)]
+        #[derive(Debug, PartialEq)]
         #[allow(dead_code)]
         enum Species {
             Dog,
