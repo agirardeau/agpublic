@@ -1,8 +1,9 @@
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::Deref;
 
 pub trait Lookup {
-    type Key: Hash + Eq + Clone;
+    type Key: Hash + Eq + Clone + Debug;
     fn key(&self) -> Self::Key;
 }
 

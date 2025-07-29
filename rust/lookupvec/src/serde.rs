@@ -1,14 +1,17 @@
 #[cfg(feature = "serde")]
 
+use crate::LookupVec;
+use crate::Lookup;
+
 use serde::Deserialize;
 use serde::Deserializer;
-use serde::de;
+use serde::de::Error as DeError;
 use serde::de::IntoDeserializer;
 use serde::de::value::SeqDeserializer;
 use serde::Serialize;
 use serde::Serializer;
-use crate::LookupVec;
-use crate::Lookup;
+#[allow(unused_imports)]
+use std::error::Error as _;
 use std::hash::BuildHasher;
 
 impl<T, S> Serialize for LookupVec<T, S> 
@@ -59,13 +62,16 @@ where
             where
                 A: serde::de::SeqAccess<'de>,
             {
-                let mut vec = LookupVec::with_capacity_and_hasher(
+                let mut vec: LookupVec<T, S> = LookupVec::with_capacity_and_hasher(
                     seq.size_hint().unwrap_or(0),
                     S::default()
                 );
 
                 while let Some(value) = seq.next_element()? {
-                    vec.push(value);
+                    if let Some(preexisting) = vec.push(value) {
+                        //let key: T::Key = value.key();
+                        return Err(A::Error::custom(format!("Found duplicate key {:?}", preexisting.key())))
+                    }
                 }
 
                 Ok(vec)
@@ -82,7 +88,7 @@ impl<'de, T, S, E> IntoDeserializer<'de, E> for LookupVec<T, S>
 where
     T: Lookup + IntoDeserializer<'de, E>,
     S: BuildHasher,
-    E: de::Error,
+    E: DeError,
 {
     type Deserializer = SeqDeserializer<<Self as IntoIterator>::IntoIter, E>;
 
@@ -94,6 +100,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
@@ -250,6 +257,23 @@ mod tests {
 
         let keys: Vec<_> = vec.keys().collect();
         assert_eq!(keys, vec!["c", "a", "b"]);
+    }
+
+    #[test]
+    fn test_duplicate_keys_fail() {
+        let json = r#"[
+            {"id":"a","value":1},
+            {"id":"b","value":2},
+            {"id":"b","value":2}
+        ]"#;
+        let result: Result<LookupVec<TestItem>, _> = serde_json::from_str(json);
+        assert!(result.is_err());
+        let err_string = result.unwrap_err().to_string();
+        assert!(
+            err_string.contains(r#"Found duplicate key "b""#),
+            "Unexpected error string: {}",
+            err_string,
+        );
     }
 
     #[test]

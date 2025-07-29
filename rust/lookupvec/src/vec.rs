@@ -350,6 +350,7 @@ impl<T: Lookup, S> IndexMut<usize> for LookupVec<T, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
     use lookupvec_derive::Lookup;
     use std::rc::Rc;
 
