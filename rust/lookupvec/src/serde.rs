@@ -10,14 +10,16 @@ use serde::de::IntoDeserializer;
 use serde::de::value::SeqDeserializer;
 use serde::Serialize;
 use serde::Serializer;
+
 #[allow(unused_imports)]
-use std::error::Error as _;
-use std::hash::BuildHasher;
+use core::error::Error as _;
+use core::hash::BuildHasher;
+use core::marker::PhantomData;
 
 impl<T, S> Serialize for LookupVec<T, S> 
 where 
     T: Lookup + Serialize,
-    S: BuildHasher,
+    //S: BuildHasher,
 {
     fn serialize<Ser>(&self, serializer: Ser) -> Result<Ser::Ok, Ser::Error>
     where
@@ -44,7 +46,7 @@ where
     {
         // Deserialize from a sequence/array
         struct LookupVecVisitor<T, S> {
-            marker: std::marker::PhantomData<(T, S)>,
+            marker: PhantomData<(T, S)>,
         }
 
         impl<'de, T, S> serde::de::Visitor<'de> for LookupVecVisitor<T, S>
@@ -54,7 +56,7 @@ where
         {
             type Value = LookupVec<T, S>;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
                 formatter.write_str("a sequence of values")
             }
 
@@ -70,7 +72,7 @@ where
                 while let Some(value) = seq.next_element()? {
                     if let Some(preexisting) = vec.push(value) {
                         //let key: T::Key = value.key();
-                        return Err(A::Error::custom(format!("Found duplicate key {:?}", preexisting.key())))
+                        return Err(A::Error::custom(format_args!("Found duplicate key {:?}", preexisting.key())))
                     }
                 }
 
@@ -79,7 +81,7 @@ where
         }
 
         deserializer.deserialize_seq(LookupVecVisitor {
-            marker: std::marker::PhantomData,
+            marker: PhantomData,
         })
     }
 }
@@ -102,6 +104,12 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use serde::{Deserialize, Serialize};
+
+    // As of 7/2025 alloc::prelude is nightly-only
+    use alloc::borrow::ToOwned;
+    use alloc::string::String;
+    use alloc::string::ToString;
+    use alloc::vec::Vec;
 
     #[derive(Debug, PartialEq, Serialize, Deserialize)]
     struct TestItem {
@@ -126,7 +134,7 @@ mod tests {
 
     fn create_test_item(id: &str, value: i32) -> TestItem {
         TestItem {
-            id: id.to_string(),
+            id: id.to_owned(),
             value,
         }
     }
@@ -147,7 +155,7 @@ mod tests {
     fn create_test_item_int_key(id: u64, value: &str) -> TestItemIntKey {
         TestItemIntKey {
             id: id,
-            value: value.to_string(),
+            value: value.to_owned(),
         }
     }
 
@@ -167,7 +175,7 @@ mod tests {
 
     #[test]
     fn test_serialize_single_item() {
-        let mut vec = LookupVec::new();
+        let mut vec = LookupVec::<_>::new();
         vec.push(create_test_item("test1", 42));
         
         let json = serde_json::to_string(&vec).unwrap();
@@ -186,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_serialize_multiple_items() {
-        let mut vec = LookupVec::new();
+        let mut vec = LookupVec::<_>::new();
         vec.push(create_test_item("test1", 1));
         vec.push(create_test_item("test2", 2));
         vec.push(create_test_item("test3", 3));
@@ -212,7 +220,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_serialization() {
-        let mut original = LookupVec::new();
+        let mut original = LookupVec::<_>::new();
         original.push(create_test_item("a", 1));
         original.push(create_test_item("b", 2));
 
@@ -226,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_roundtrip_serialization_int_key() {
-        let mut original = LookupVec::new();
+        let mut original = LookupVec::<_>::new();
         original.push(create_test_item_int_key(10, "a"));
         original.push(create_test_item_int_key(20, "b"));
 
@@ -278,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_into_deserializer() {
-        let mut vec = LookupVec::new();
+        let mut vec = LookupVec::<_>::new();
         vec.push(create_test_item("test1", 42));
         vec.push(create_test_item("test2", 84));
 

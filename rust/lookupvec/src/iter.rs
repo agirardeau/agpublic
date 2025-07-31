@@ -1,6 +1,8 @@
-use std::iter::FusedIterator;
-use delegate::delegate;
 use crate::core::Lookup;
+
+use core::iter::FusedIterator;
+
+use delegate::delegate;
 
 pub struct Iter<'a, T: Lookup> (pub(crate) indexmap::map::Values<'a, T::Key, T>);
 impl<'a, T: Lookup> Iterator for Iter<'a, T> {

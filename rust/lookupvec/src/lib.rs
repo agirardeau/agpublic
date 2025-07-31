@@ -1,3 +1,5 @@
+#![no_std]
+
 // Trait impls:
 //  Maybe:
 //      Index<&Q>
@@ -67,6 +69,10 @@
 //          par_values_mut()
 //          par_*
 //
+
+#[cfg(test)]
+#[macro_use]
+extern crate alloc;
 
 pub mod core;
 pub mod iter;

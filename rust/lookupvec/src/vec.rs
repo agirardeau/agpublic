@@ -2,6 +2,7 @@ use crate::core::Lookup;
 use crate::iter::*;
 //use crate::slice::Slice;
 
+use ahash::random_state::RandomState;
 use delegate::delegate;
 use indexmap::IndexMap;
 use indexmap::Equivalent;
@@ -13,32 +14,22 @@ use core::hash::Hash;
 use core::ops::Index;
 use core::ops::IndexMut;
 use core::ops::RangeBounds;
-#[cfg(feature = "std")]
-use std::hash::RandomState;
 
-#[cfg(feature = "std")]
 #[derive(Debug, Clone)]
 pub struct LookupVec<T: Lookup, S = RandomState> {
     map: IndexMap<T::Key, T, S>,
 }
 
-#[cfg(not(feature = "std"))]
-#[derive(Debug, Clone)]
-pub struct LookupVec<T: Lookup, S> {
-    map: IndexMap<T::Key, T, S>,
-}
-
-#[cfg(feature = "std")]
-impl<T: Lookup> LookupVec<T> {
+impl<T: Lookup, S: Default> LookupVec<T, S> {
     pub fn new() -> Self {
         LookupVec {
-            map: IndexMap::<T::Key, T>::new(),
+            map: IndexMap::with_hasher(S::default()),
         }
     }
 
     pub fn with_capacity(n: usize) -> Self {
         LookupVec {
-            map: IndexMap::<T::Key, T>::with_capacity(n),
+            map: IndexMap::with_capacity_and_hasher(n, S::default()),
         }
     }
 }
@@ -55,9 +46,7 @@ impl<T: Lookup, S> LookupVec<T, S> {
             map: IndexMap::with_capacity_and_hasher(n, hasher),
         }
     }
-}
 
-impl<T: Lookup, S> LookupVec<T, S> {
     delegate![
         to self.map {
             pub fn len(&self) -> usize;
@@ -139,9 +128,7 @@ impl<T: Lookup, S> LookupVec<T, S> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: Lookup, S> LookupVec<T, S>
-where S: BuildHasher {
+impl<T: Lookup, S: BuildHasher> LookupVec<T, S> {
     delegate![
         to self.map {
             pub fn get<Q>(&self, key: &Q) -> Option<&T> where Q: ?Sized + Hash + Equivalent<T::Key>;
@@ -183,9 +170,8 @@ where S: BuildHasher {
 
 }
 
-#[cfg(feature = "std")]
-impl<T: Lookup, S> LookupVec<T, S>
-where S: BuildHasher, T::Key: Ord {
+impl<T: Lookup, S: BuildHasher> LookupVec<T, S>
+where T::Key: Ord {
     pub fn sort(&mut self) {
         // We use unstable for performance since there should never be duplicate
         // keys
@@ -247,8 +233,7 @@ impl<T: Lookup, S> IntoIterator for LookupVec<T, S> {
     }
 }
 
-impl<T: Lookup, S> FromIterator<T> for LookupVec<T, S>
-where S: BuildHasher + Default {
+impl<T: Lookup, S: BuildHasher + Default> FromIterator<T> for LookupVec<T, S> {
     fn from_iter<I: IntoIterator<Item = T>>(iterable: I) -> Self {
         let iter = iterable.into_iter();
         let (low, _) = iter.size_hint();
@@ -258,21 +243,19 @@ where S: BuildHasher + Default {
     }
 }
 
-#[cfg(feature = "std")]
-impl<T: Lookup, const N: usize> From<[T; N]> for LookupVec<T, RandomState> {
+impl<T: Lookup, const N: usize> From<[T; N]> for LookupVec<T> {
     fn from(arr: [T; N]) -> Self {
         Self::from_iter(arr)
     }
 }
 
-impl<T: Lookup> Default for LookupVec<T> {
+impl<T: Lookup, S: Default> Default for LookupVec<T, S> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Lookup, S> Extend<T> for LookupVec<T, S>
-where S: BuildHasher {
+impl<T: Lookup, S: BuildHasher> Extend<T> for LookupVec<T, S> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iterable: I) {
         // (Note: this is a copy of `std`/`hashbrown`'s reservation logic.)
         // Keys may be already present or show multiple times in the iterator.
@@ -352,7 +335,12 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use lookupvec_derive::Lookup;
-    use std::rc::Rc;
+
+    // As of 7/2025 alloc::prelude is nightly-only
+    use alloc::borrow::ToOwned;
+    use alloc::string::String;
+    use alloc::vec::Vec;
+    use alloc::rc::Rc;
 
     #[derive(Debug, Clone, PartialEq, Lookup)]
     struct TestItem {
@@ -388,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_push_and_get() {
-        let mut vec = LookupVec::new();
+        let mut vec = LookupVec::<_>::new();
         vec.push(item1());
         vec.push(item2());
 
@@ -471,14 +459,14 @@ mod tests {
             item3(),
         ];
 
-        let drained: LookupVec<TestItem> = vec.drain(1..3).collect();
+        let drained: LookupVec<_> = vec.drain(1..3).collect();
         assert_keys_eq!(vec, "item1");
         assert_keys_eq!(drained, "item2", "item3");
     }
 
     #[test]
     fn test_first_last() {
-        let mut vec = LookupVec::new();
+        let mut vec = LookupVec::<_>::new();
         assert!(vec.first().is_none());
         assert!(vec.last().is_none());
 
@@ -581,7 +569,7 @@ mod tests {
 
     #[test]
     fn test_capacity_management() {
-        let mut vec = LookupVec::with_capacity(10);
+        let mut vec = LookupVec::<_>::with_capacity(10);
         assert!(vec.capacity() >= 10);
 
         vec.reserve(5);

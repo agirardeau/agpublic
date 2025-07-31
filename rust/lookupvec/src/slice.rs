@@ -7,8 +7,8 @@ use crate::core::Lookup;
 use indexmap::map::Slice as InnerSlice;
 use ref_cast::RefCast;
 
-use std::ops::Index;
-use std::ops::RangeBounds;
+use core::ops::Index;
+use core::ops::RangeBounds;
 
 #[derive(RefCast)]
 #[repr(transparent)]

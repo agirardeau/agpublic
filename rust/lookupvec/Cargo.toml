@@ -9,20 +9,19 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/agirardeau/agpublic"
 readme = "README.md"
-keywords = ["hashmap", "lookup", "vec"]
+keywords = ["hashmap", "lookup", "vec", "no_std"]
 categories = ["data-structures"]
 
 [features]
-default = ["std"]
 derive = ["dep:lookupvec_derive"]
 serde = ["dep:serde"]
-std = ["indexmap/std"]
 
 [dependencies]
+ahash = { version = "0.8", default-features = false, features = ["runtime-rng"] }
 delegate = "0.13"
-indexmap = "2.7"
+indexmap = { version = "2.10", default-features = false }
 lookupvec_derive = { path = "derive", version = "0.1", optional = true}
-serde = { version = "1.0", optional = true }
+serde = { version = "1.0", optional = true, default-features = false }
 ref-cast = "1.0"
 
 [dev-dependencies]
